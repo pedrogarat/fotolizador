@@ -12,8 +12,15 @@ export const DocumentPreviewView: React.FC<DocumentPreviewViewProps> = ({
   pages,
   settings,
 }) => {
-  const [zoom, setZoom] = useState(0.85);
   const dims = getPageDimensionsMm(settings.orientation);
+  const [zoom, setZoom] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      const targetPx = Math.max(260, window.innerWidth - 36);
+      const pagePxAt100 = dims.pageWidthMm * 3.7795275591;
+      return Math.max(0.32, Math.min(0.85, Number((targetPx / pagePxAt100).toFixed(2))));
+    }
+    return 0.85;
+  });
   const headerTopMm = TEMPLATE_METRICS.headerDxa * DXA_TO_MM;
   const footerBottomMm = TEMPLATE_METRICS.footerDxa * DXA_TO_MM;
 
@@ -38,7 +45,7 @@ export const DocumentPreviewView: React.FC<DocumentPreviewViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setZoom((z) => Math.max(0.45, Number((z - 0.1).toFixed(2))))}
+            onClick={() => setZoom((z) => Math.max(0.3, Number((z - 0.1).toFixed(2))))}
             className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700"
             title="Alejar"
           >

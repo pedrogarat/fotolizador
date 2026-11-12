@@ -7,6 +7,7 @@ import {
   FileText,
   Images,
   Loader2,
+  SlidersHorizontal,
   Trash2,
 } from 'lucide-react';
 import { DocumentSettings, PhotoItem } from './types';
@@ -30,7 +31,7 @@ import { ImportProgress, PhotoDropzone } from './components/PhotoDropzone';
 import { PhotoGridView } from './components/PhotoGridView';
 import { DocumentPreviewView } from './components/DocumentPreviewView';
 
-type ActiveTab = 'photos' | 'preview';
+type ActiveTab = 'photos' | 'preview' | 'settings';
 
 export function App() {
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
@@ -252,15 +253,15 @@ export function App() {
       className="min-h-screen lg:h-screen flex flex-col bg-slate-100 text-slate-900"
     >
       {/* Top Navbar */}
-      <header className="h-16 shrink-0 bg-white border-b border-slate-200 px-4 lg:px-6 flex items-center justify-between gap-4 z-20">
-        <div className="flex items-center gap-3 min-w-0">
+      <header className="sticky top-0 h-16 shrink-0 bg-white border-b border-slate-200 px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-2 sm:gap-4 z-30">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs shrink-0">
             <Camera className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-base font-bold text-slate-900 leading-tight truncate">
-              Fotolizador{' '}
-              <span className="font-normal text-slate-500 text-xs sm:text-sm">
+            <h1 className="text-sm sm:text-base font-bold text-slate-900 leading-tight truncate">
+              Fotolizador
+              <span className="block sm:inline sm:ml-1 font-normal text-slate-500 text-[11px] sm:text-sm">
                 (por Pedro Garat)
               </span>
             </h1>
@@ -278,13 +279,13 @@ export function App() {
           )}
         </div>
 
-        {/* Center view switcher */}
-        <div className="hidden md:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+        {/* Center view switcher (Desktop lg+) */}
+        <div className="hidden lg:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
           <button
             type="button"
             onClick={() => setActiveTab('photos')}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-              activeTab === 'photos'
+              activeTab === 'photos' || activeTab === 'settings'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -351,42 +352,67 @@ export function App() {
         </div>
       </header>
 
+      {/* Sticky Mobile / Tablet Navigation Tabs */}
+      <nav
+        aria-label="Navegación móvil"
+        className="lg:hidden sticky top-16 z-20 bg-white border-b border-slate-200 px-3 py-2 flex items-center gap-1.5 shadow-xs"
+      >
+        <button
+          type="button"
+          onClick={() => setActiveTab('photos')}
+          className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold transition ${
+            activeTab === 'photos'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200/70'
+          }`}
+        >
+          <Images className="w-3.5 h-3.5 shrink-0" />
+          <span>Fotos ({photos.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('preview')}
+          className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold transition ${
+            activeTab === 'preview'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200/70'
+          }`}
+        >
+          <Eye className="w-3.5 h-3.5 shrink-0" />
+          <span>Vista previa ({pages.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('settings')}
+          className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold transition ${
+            activeTab === 'settings'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200/70'
+          }`}
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
+          <span>Ajustes</span>
+        </button>
+      </nav>
+
       {/* Main Workspace */}
       <div className="flex-1 flex flex-col lg:flex-row min-h-0">
-        <SidebarControls
-          settings={settings}
-          onChange={updateSettings}
-          totalOriginalBytes={totalOriginalBytes}
-          totalEstimatedBytes={totalEstimatedBytes}
-          photoCount={photos.length}
-          pageCount={pages.length}
-        />
+        <div className={activeTab === 'settings' ? 'block lg:block' : 'hidden lg:block'}>
+          <SidebarControls
+            settings={settings}
+            onChange={updateSettings}
+            totalOriginalBytes={totalOriginalBytes}
+            totalEstimatedBytes={totalEstimatedBytes}
+            photoCount={photos.length}
+            pageCount={pages.length}
+          />
+        </div>
 
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
-          {/* Mobile Tab Switcher */}
-          <div className="flex md:hidden items-center justify-between gap-2 bg-white p-1.5 rounded-xl border border-slate-200">
-            <button
-              type="button"
-              onClick={() => setActiveTab('photos')}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                activeTab === 'photos' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600'
-              }`}
-            >
-              <Images className="w-3.5 h-3.5" />
-              Miniaturas ({photos.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('preview')}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                activeTab === 'preview' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600'
-              }`}
-            >
-              <Eye className="w-3.5 h-3.5" />
-              Vista previa ({pages.length})
-            </button>
-          </div>
-
+        <main
+          className={`flex-1 overflow-y-auto p-4 lg:p-6 space-y-5 ${
+            activeTab === 'settings' ? 'hidden lg:block' : 'block'
+          }`}
+        >
           {/* Export progress bar */}
           {exportProgress && (
             <div className="rounded-xl bg-indigo-50 border border-indigo-200 px-4 py-3 flex items-center gap-3">
@@ -412,17 +438,21 @@ export function App() {
             </div>
           )}
 
-          {/* Dropzone */}
-          <PhotoDropzone
-            onFilesSelected={handleFilesSelected}
-            compact={photos.length > 0}
-            importProgress={importProgress}
-          />
+          {/* Dropzone (shown in Fotos tab or desktop) */}
+          {(activeTab !== 'preview' || photos.length === 0) && (
+            <PhotoDropzone
+              onFilesSelected={handleFilesSelected}
+              compact={photos.length > 0}
+              importProgress={importProgress}
+            />
+          )}
 
           {/* Content area */}
-          {photos.length > 0 && (
+          {photos.length > 0 ? (
             <>
-              {activeTab === 'photos' ? (
+              {activeTab === 'preview' ? (
+                <DocumentPreviewView pages={pages} settings={settings} />
+              ) : (
                 <PhotoGridView
                   groups={groups}
                   settings={settings}
@@ -431,10 +461,20 @@ export function App() {
                   onUpdateCustomCaption={handleUpdateCustomCaption}
                   onReorderManual={handleReorderManual}
                 />
-              ) : (
-                <DocumentPreviewView pages={pages} settings={settings} />
               )}
             </>
+          ) : (
+            activeTab === 'preview' && (
+              <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
+                <Eye className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-slate-700">
+                  Aún no hay páginas para previsualizar
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Añade al menos una foto arriba para ver la vista previa A4.
+                </p>
+              </div>
+            )
           )}
         </main>
       </div>
