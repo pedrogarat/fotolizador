@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Camera,
@@ -86,6 +86,55 @@ export function App() {
     setSettings((prev) => ({ ...prev, ...patch }));
   }, []);
 
+  // Tab navigation integrated with browser history (Back / Forward)
+  const navigateToTab = useCallback((tab: ActiveTab, replace = false) => {
+    setActiveTab(tab);
+    const targetHash = `#${tab}`;
+    if (window.location.hash !== targetHash) {
+      if (replace) {
+        window.history.replaceState({ tab }, '', targetHash);
+      } else {
+        window.history.pushState({ tab }, '', targetHash);
+      }
+    }
+  }, []);
+
+  const openReconnectModal = useCallback(() => {
+    setReconnectModalOpen(true);
+    window.history.pushState({ modal: 'reconnect' }, '', window.location.hash || '#photos');
+  }, []);
+
+  const closeReconnectModal = useCallback(() => {
+    if (window.history.state && window.history.state.modal === 'reconnect') {
+      window.history.back();
+    } else {
+      setReconnectModalOpen(false);
+    }
+  }, []);
+
+  // Listen to browser Back / Forward events (popstate)
+  useEffect(() => {
+    const parseHash = (hash: string): ActiveTab => {
+      const clean = hash.replace(/^#/, '');
+      if (clean === 'preview' || clean === 'settings') return clean;
+      return 'photos';
+    };
+
+    const initialTab = parseHash(window.location.hash);
+    setActiveTab(initialTab);
+    window.history.replaceState({ tab: initialTab }, '', `#${initialTab}`);
+
+    const onPopState = () => {
+      // If modal was open, back closes it
+      setReconnectModalOpen(false);
+      const nextTab = parseHash(window.location.hash);
+      setActiveTab(nextTab);
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
   const showToast = useCallback((msg: string) => {
     setStatusMessage(msg);
     setTimeout(() => {
@@ -95,6 +144,7 @@ export function App() {
 
   const handleFilesSelected = useCallback(
     async (fileList: FileList | File[]) => {
+      setGlobalDragActive(false);
       const files = Array.from(fileList).filter((f) => f.type.startsWith('image/'));
       if (files.length === 0) {
         showToast('No se detectaron archivos de imagen válidos.');
@@ -174,9 +224,9 @@ export function App() {
     setPhotos([]);
     setPendingPhotoConfigs([]);
     await clearPhotosDb();
-    setActiveTab('photos');
+    navigateToTab('photos', true);
     showToast('Se han eliminado todas las fotos. Listo para un nuevo montaje.');
-  }, [photos.length, showToast]);
+  }, [photos.length, navigateToTab, showToast]);
 
   const handleExportFot = useCallback(() => {
     try {
@@ -230,14 +280,14 @@ export function App() {
               `Proyecto .fot cargado: configuración aplicada a las ${matchedCount} fotos.`
             );
           } else {
-            setReconnectModalOpen(true);
+            openReconnectModal();
             showToast(
               `Proyecto .fot cargado: se actualizaron ${matchedCount} de ${project.photos.length} fotos.`
             );
           }
         } else {
           // If no photos loaded yet, immediately open the reconnect modal so user can pick the folder
-          setReconnectModalOpen(true);
+          openReconnectModal();
           showToast(
             `Proyecto .fot cargado (${project.photos.length} fotos requeridas). Selecciona la carpeta raíz para localizarlas.`
           );
@@ -251,6 +301,7 @@ export function App() {
 
   const handleFolderSelected = useCallback(
     async (fileList: File[]) => {
+      setGlobalDragActive(false);
       const imageFiles = fileList.filter(
         (f) =>
           f.type.startsWith('image/') ||
@@ -282,7 +333,7 @@ export function App() {
             combined.sort((a, b) => a.manualOrder - b.manualOrder);
             return combined;
           });
-          setReconnectModalOpen(false);
+          closeReconnectModal();
           showToast(
             `¡Reconectadas con éxito ${matchedItems.length} fotos desde la carpeta!`
           );
@@ -299,7 +350,7 @@ export function App() {
         setIsReconnecting(false);
       }
     },
-    [photos, pendingPhotoConfigs, showToast]
+    [photos, pendingPhotoConfigs, closeReconnectModal, showToast]
   );
 
   const missingProjectPhotosCount = useMemo(() => {
@@ -374,38 +425,83 @@ export function App() {
     }
   };
 
-  // Global file drag-and-drop handler across the whole screen
-  const handleWindowDragOver = (e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('Files')) {
-      e.preventDefault();
-      setGlobalDragActive(true);
-    }
-  };
+  // Robust global drag-and-drop handler with capture to avoid stuck overlays
+  useEffect(() => {
+    let dragCounter = 0;
 
-  const handleWindowDragLeave = (e: React.DragEvent) => {
-    if (e.currentTarget === e.target) {
-      setGlobalDragActive(false);
-    }
-  };
-
-  const handleWindowDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setGlobalDragActive(false);
-    if (e.dataTransfer) {
-      const files = await extractFilesFromDataTransfer(e.dataTransfer);
-      if (files.length > 0) {
-        handleFilesSelected(files);
+    const onDragEnter = (e: DragEvent) => {
+      if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
+        dragCounter++;
+        setGlobalDragActive(true);
       }
-    }
-  };
+    };
+
+    const onDragLeave = () => {
+      dragCounter = Math.max(0, dragCounter - 1);
+      if (dragCounter === 0) {
+        setGlobalDragActive(false);
+      }
+    };
+
+    const onDragOver = (e: DragEvent) => {
+      if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
+        e.preventDefault();
+        setGlobalDragActive(true);
+      }
+    };
+
+    const onDropCapture = () => {
+      dragCounter = 0;
+      setGlobalDragActive(false);
+    };
+
+    const onWindowDrop = async (e: DragEvent) => {
+      dragCounter = 0;
+      setGlobalDragActive(false);
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        e.preventDefault();
+        const files = await extractFilesFromDataTransfer(e.dataTransfer);
+        if (files.length > 0) {
+          handleFilesSelected(files);
+        }
+      }
+    };
+
+    const onCancel = () => {
+      dragCounter = 0;
+      setGlobalDragActive(false);
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        dragCounter = 0;
+        setGlobalDragActive(false);
+      }
+    };
+
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('drop', onDropCapture, true); // Runs during capture, ensuring overlay dismisses
+    window.addEventListener('drop', onWindowDrop);
+    window.addEventListener('dragend', onCancel);
+    window.addEventListener('mouseleave', onCancel);
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('drop', onDropCapture, true);
+      window.removeEventListener('drop', onWindowDrop);
+      window.removeEventListener('dragend', onCancel);
+      window.removeEventListener('mouseleave', onCancel);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [handleFilesSelected]);
 
   return (
-    <div
-      onDragOver={handleWindowDragOver}
-      onDragLeave={handleWindowDragLeave}
-      onDrop={handleWindowDrop}
-      className="min-h-screen lg:h-screen flex flex-col bg-slate-100 text-slate-900"
-    >
+    <div className="min-h-screen lg:h-screen flex flex-col bg-slate-100 text-slate-900">
       {/* Top Navbar */}
       <header className="sticky top-0 h-16 shrink-0 bg-white border-b border-slate-200 px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-2 sm:gap-4 z-30">
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
@@ -437,7 +533,7 @@ export function App() {
         <div className="hidden lg:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
           <button
             type="button"
-            onClick={() => setActiveTab('photos')}
+            onClick={() => navigateToTab('photos')}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
               activeTab === 'photos' || activeTab === 'settings'
                 ? 'bg-white text-slate-900 shadow-xs'
@@ -449,7 +545,7 @@ export function App() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('preview')}
+            onClick={() => navigateToTab('preview')}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
               activeTab === 'preview'
                 ? 'bg-white text-slate-900 shadow-xs'
@@ -537,7 +633,7 @@ export function App() {
       >
         <button
           type="button"
-          onClick={() => setActiveTab('photos')}
+          onClick={() => navigateToTab('photos')}
           className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold transition ${
             activeTab === 'photos'
               ? 'bg-indigo-600 text-white shadow-xs'
@@ -549,7 +645,7 @@ export function App() {
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('preview')}
+          onClick={() => navigateToTab('preview')}
           className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold transition ${
             activeTab === 'preview'
               ? 'bg-indigo-600 text-white shadow-xs'
@@ -561,7 +657,7 @@ export function App() {
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('settings')}
+          onClick={() => navigateToTab('settings')}
           className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold transition ${
             activeTab === 'settings'
               ? 'bg-indigo-600 text-white shadow-xs'
@@ -643,7 +739,7 @@ export function App() {
               </div>
               <button
                 type="button"
-                onClick={() => setReconnectModalOpen(true)}
+                onClick={openReconnectModal}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold transition cursor-pointer shadow-xs shrink-0"
               >
                 <FolderSearch className="w-3.5 h-3.5" />
@@ -738,7 +834,7 @@ export function App() {
       {/* Reconnect Photos Modal */}
       <ReconnectPhotosModal
         isOpen={reconnectModalOpen}
-        onClose={() => setReconnectModalOpen(false)}
+        onClose={closeReconnectModal}
         rootFolderHint={rootFolderHint}
         missingCount={missingProjectPhotosCount || pendingPhotoConfigs.length}
         totalProjectPhotos={pendingPhotoConfigs.length}
@@ -748,8 +844,14 @@ export function App() {
 
       {/* Global file drag overlay */}
       {globalDragActive && (
-        <div className="fixed inset-0 z-50 bg-indigo-900/40 backdrop-blur-xs flex items-center justify-center p-6 pointer-events-none">
-          <div className="bg-white rounded-3xl border-2 border-dashed border-indigo-500 px-10 py-8 text-center shadow-2xl">
+        <div
+          onClick={() => setGlobalDragActive(false)}
+          className="fixed inset-0 z-50 bg-indigo-900/40 backdrop-blur-xs flex items-center justify-center p-6 cursor-pointer select-none"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl border-2 border-dashed border-indigo-500 px-10 py-8 text-center shadow-2xl pointer-events-auto"
+          >
             <Images className="w-12 h-12 text-indigo-600 mx-auto mb-3" />
             <p className="text-lg font-bold text-slate-900">
               Suelta tus fotos para añadirlas
@@ -757,6 +859,13 @@ export function App() {
             <p className="text-sm text-slate-500 mt-1">
               Se cargarán y almacenarán localmente en tu navegador
             </p>
+            <button
+              type="button"
+              onClick={() => setGlobalDragActive(false)}
+              className="mt-3 inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-700 underline cursor-pointer"
+            >
+              Cancelar (o pulsa Esc)
+            </button>
           </div>
         </div>
       )}

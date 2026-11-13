@@ -68,14 +68,17 @@ export const PhotoGridView: React.FC<PhotoGridViewProps> = ({
           if (dragOverId === photo.id) setDragOverId(null);
         }}
         onDrop={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const sourceId = draggedId || e.dataTransfer.getData('text/plain');
-          setDraggedId(null);
-          setDragOverId(null);
-          if (sourceId && sourceId !== photo.id) {
-            onReorderManual(sourceId, photo.id);
+          if (draggedId) {
+            e.preventDefault();
+            e.stopPropagation();
+            const sourceId = draggedId || e.dataTransfer.getData('text/plain');
+            setDraggedId(null);
+            setDragOverId(null);
+            if (sourceId && sourceId !== photo.id) {
+              onReorderManual(sourceId, photo.id);
+            }
           }
+          // If files from desktop/NAS are dropped, allow event to bubble so App handles them
         }}
         onDragEnd={() => {
           setDraggedId(null);

@@ -43,7 +43,6 @@ export const PhotoDropzone: React.FC<PhotoDropzoneProps> = ({
 
   const onDrop = async (e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
     setIsDragging(false);
     if (e.dataTransfer) {
       const files = await extractFilesFromDataTransfer(e.dataTransfer);
