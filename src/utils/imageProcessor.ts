@@ -132,12 +132,26 @@ export async function createThumbnailDataUrl(
 
 export async function importImageFile(
   file: File,
-  manualOrder: number
+  manualOrder: number,
+  preset?: {
+    rotation?: 0 | 90 | 180 | 270;
+    customCaption?: string;
+    manualOrder?: number;
+  }
 ): Promise<PhotoItem> {
+  const initialRotation = preset?.rotation ?? 0;
+  const initialOrder = preset?.manualOrder ?? manualOrder;
+  const initialCaption = preset?.customCaption ?? '';
+
   const [captureDate, thumbInfo] = await Promise.all([
     extractCaptureTimestamp(file),
-    createThumbnailDataUrl(file, 0, 380),
+    createThumbnailDataUrl(file, initialRotation, 380),
   ]);
+
+  const relPath =
+    (file as { customRelativePath?: string }).customRelativePath ||
+    file.webkitRelativePath ||
+    file.name;
 
   return {
     id: createId(),
@@ -149,11 +163,12 @@ export async function importImageFile(
     captureDate,
     modifiedDate: file.lastModified || Date.now(),
     addedAt: Date.now(),
-    manualOrder,
-    rotation: 0,
-    customCaption: '',
+    manualOrder: initialOrder,
+    rotation: initialRotation,
+    customCaption: initialCaption,
     thumbnailUrl: thumbInfo.thumbnailUrl,
     blob: file,
+    relativePath: relPath,
   };
 }
 

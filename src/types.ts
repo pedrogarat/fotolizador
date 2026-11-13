@@ -29,6 +29,7 @@ export interface PhotoItem {
   customCaption: string;
   thumbnailUrl: string;
   blob: Blob;
+  relativePath?: string; // Subcarpeta o ruta relativa respecto a la carpeta común
 }
 
 export interface DocumentSettings {
@@ -60,6 +61,27 @@ export interface PhotoGroup {
 export interface CellImageGeometry {
   widthMm: number;
   heightMm: number;
+}
+
+export interface PhotoConfigItem {
+  name: string;
+  relativePath?: string;
+  size?: number;
+  manualOrder: number;
+  rotation: 0 | 90 | 180 | 270;
+  customCaption: string;
+  captureDate?: number | null;
+  modifiedDate?: number;
+}
+
+export interface FotProjectFile {
+  format: 'fotoprint';
+  version: 1;
+  createdAt: number;
+  updatedAt: number;
+  rootFolderHint?: string;
+  settings: DocumentSettings;
+  photos: PhotoConfigItem[];
 }
 
 export interface PlannedCell {

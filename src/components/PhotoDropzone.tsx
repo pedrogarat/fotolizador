@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { ImagePlus, Loader2, Upload } from 'lucide-react';
+import { FolderOpen, ImagePlus, Loader2, Upload } from 'lucide-react';
+import { extractFilesFromDataTransfer } from '../utils/fileSystemUtils';
 
 export interface ImportProgress {
   current: number;
@@ -19,10 +20,11 @@ export const PhotoDropzone: React.FC<PhotoDropzoneProps> = ({
   importProgress = null,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const isImporting = Boolean(importProgress);
 
-  const handleFiles = (files: FileList | null) => {
+  const handleFiles = (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
     onFilesSelected(files);
   };
@@ -39,11 +41,16 @@ export const PhotoDropzone: React.FC<PhotoDropzoneProps> = ({
     setIsDragging(false);
   };
 
-  const onDrop = (e: React.DragEvent) => {
+  const onDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    handleFiles(e.dataTransfer.files);
+    if (e.dataTransfer) {
+      const files = await extractFilesFromDataTransfer(e.dataTransfer);
+      if (files.length > 0) {
+        handleFiles(files);
+      }
+    }
   };
 
   const pct = importProgress
@@ -82,6 +89,17 @@ export const PhotoDropzone: React.FC<PhotoDropzoneProps> = ({
         type="file"
         accept="image/*"
         multiple
+        className="hidden"
+        onChange={(e) => {
+          handleFiles(e.target.files);
+          e.target.value = '';
+        }}
+      />
+
+      <input
+        ref={folderInputRef}
+        type="file"
+        {...({ webkitdirectory: '', directory: '', multiple: true } as any)}
         className="hidden"
         onChange={(e) => {
           handleFiles(e.target.files);
@@ -128,25 +146,44 @@ export const PhotoDropzone: React.FC<PhotoDropzoneProps> = ({
               )}
             </div>
           </div>
-          <span
-            className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold text-white shadow-xs ${
-              isImporting
-                ? 'bg-indigo-400'
-                : 'bg-indigo-600 hover:bg-indigo-700'
-            }`}
-          >
-            {isImporting ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                {pct}%
-              </>
-            ) : (
-              <>
-                <Upload className="w-3.5 h-3.5" />
-                Seleccionar fotos
-              </>
-            )}
-          </span>
+          <div className="shrink-0 flex items-center gap-2">
+            <button
+              type="button"
+              disabled={isImporting}
+              onClick={(e) => {
+                e.stopPropagation();
+                folderInputRef.current?.click();
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition cursor-pointer disabled:opacity-50"
+              title="Añadir una carpeta completa con sus subcarpetas"
+            >
+              <FolderOpen className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="hidden sm:inline">Añadir carpeta</span>
+            </button>
+            <button
+              type="button"
+              disabled={isImporting}
+              onClick={(e) => {
+                e.stopPropagation();
+                inputRef.current?.click();
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition cursor-pointer ${
+                isImporting ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700'
+              }`}
+            >
+              {isImporting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  {pct}%
+                </>
+              ) : (
+                <>
+                  <Upload className="w-3.5 h-3.5" />
+                  Añadir fotos
+                </>
+              )}
+            </button>
+          </div>
         </>
       ) : (
         <div className="max-w-md mx-auto flex flex-col items-center">
@@ -184,10 +221,30 @@ export const PhotoDropzone: React.FC<PhotoDropzoneProps> = ({
               />
             </div>
           ) : (
-            <span className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700">
-              <Upload className="w-4 h-4" />
-              Seleccionar fotografías
-            </span>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  folderInputRef.current?.click();
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-white border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-indigo-400 transition cursor-pointer"
+              >
+                <FolderOpen className="w-4 h-4 text-indigo-600" />
+                Seleccionar carpeta de fotos
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  inputRef.current?.click();
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-indigo-700 transition cursor-pointer"
+              >
+                <Upload className="w-4 h-4" />
+                Seleccionar archivos
+              </button>
+            </div>
           )}
           <p className="text-xs text-slate-400 mt-4">
             Sin servidores externos · Almacenamiento local en el navegador
