@@ -90,38 +90,38 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
         </button>
       </div>
 
-      {/* Proyecto .fot: Guardar y Cargar configuración */}
+      {/* Proyecto .pat: Guardar y Cargar configuración */}
       <div className="p-4 bg-slate-50/90 border-b border-slate-200">
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-700">
             <FileCode2 className="w-3.5 h-3.5 text-indigo-600" />
-            Proyecto (.fot)
+            Proyecto (.pat)
           </div>
           <span className="text-[10px] bg-indigo-100 text-indigo-700 font-semibold px-2 py-0.5 rounded-full">
             Ligero
           </span>
         </div>
         <p className="text-xs text-slate-500 mb-3 leading-relaxed">
-          Guarda o reanuda la plantilla, orden, rotaciones y pies de foto en un archivo de configuración <span className="font-mono font-semibold text-slate-700">.fot</span> (sin imágenes, &lt; 20 KB).
+          Guarda o reanuda la plantilla, orden, rotaciones y pies de foto en un archivo de configuración <span className="font-mono font-semibold text-slate-700">.pat</span> eligiendo dónde guardarlo.
         </p>
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={onExportFot}
             className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/50 text-xs font-semibold text-slate-700 hover:text-indigo-700 shadow-2xs transition cursor-pointer"
-            title="Guardar archivo .fot de este montaje"
+            title="Guardar archivo .pat eligiendo carpeta en Windows"
           >
             <Download className="w-3.5 h-3.5 text-indigo-600" />
-            Guardar .fot
+            Guardar .pat
           </button>
           <button
             type="button"
             onClick={onTriggerImportFot}
             className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/50 text-xs font-semibold text-slate-700 hover:text-indigo-700 shadow-2xs transition cursor-pointer"
-            title="Cargar un archivo .fot existente"
+            title="Cargar un archivo .pat / .fot existente"
           >
             <Upload className="w-3.5 h-3.5 text-indigo-600" />
-            Cargar .fot
+            Cargar .pat
           </button>
         </div>
       </div>

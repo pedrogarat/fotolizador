@@ -80,6 +80,7 @@ export interface FotProjectFile {
   createdAt: number;
   updatedAt: number;
   rootFolderHint?: string;
+  originalPathHint?: string;
   settings: DocumentSettings;
   photos: PhotoConfigItem[];
 }

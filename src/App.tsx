@@ -27,7 +27,7 @@ import {
   estimateResizedBytes,
   importImageFile,
 } from './utils/imageProcessor';
-import { exportProjectToFot, readFotFile } from './utils/projectFile';
+import { exportProjectToPat, readProjectFile } from './utils/projectFile';
 import { extractFilesFromDataTransfer, isPhotoMatch } from './utils/fileSystemUtils';
 import { buildDocumentPages, groupPhotos, sortPhotos } from './utils/organizePhotos';
 import { exportDocument, ExportProgress } from './utils/exporters';
@@ -228,19 +228,22 @@ export function App() {
     showToast('Se han eliminado todas las fotos. Listo para un nuevo montaje.');
   }, [photos.length, navigateToTab, showToast]);
 
-  const handleExportFot = useCallback(() => {
+  const handleExportPat = useCallback(async () => {
     try {
-      const res = exportProjectToFot(settings, photos);
+      const res = await exportProjectToPat(settings, photos);
       showToast(`Proyecto guardado: ${res.fileName} (${formatBytes(res.byteCount)})`);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Error al guardar el archivo .fot');
+      if (err instanceof Error && err.message.includes('cancelado')) {
+        return;
+      }
+      showToast(err instanceof Error ? err.message : 'Error al guardar el archivo .pat');
     }
   }, [settings, photos, showToast]);
 
-  const handleImportFot = useCallback(
+  const handleImportPat = useCallback(
     async (file: File) => {
       try {
-        const project = await readFotFile(file);
+        const project = await readProjectFile(file);
         setSettings(project.settings);
         setPendingPhotoConfigs(project.photos);
         if (project.rootFolderHint) {
@@ -277,26 +280,26 @@ export function App() {
 
           if (matchedCount === project.photos.length) {
             showToast(
-              `Proyecto .fot cargado: configuración aplicada a las ${matchedCount} fotos.`
+              `Proyecto cargado: configuración aplicada a las ${matchedCount} fotos.`
             );
           } else {
             openReconnectModal();
             showToast(
-              `Proyecto .fot cargado: se actualizaron ${matchedCount} de ${project.photos.length} fotos.`
+              `Proyecto cargado: se vincularon ${matchedCount} de ${project.photos.length} fotos.`
             );
           }
         } else {
-          // If no photos loaded yet, immediately open the reconnect modal so user can pick the folder
+          // If no photos loaded yet, open the reconnect modal so user can pick the folder
           openReconnectModal();
           showToast(
-            `Proyecto .fot cargado (${project.photos.length} fotos requeridas). Selecciona la carpeta raíz para localizarlas.`
+            `Proyecto cargado (${project.photos.length} fotos). Selecciona la carpeta para leerlas directamente.`
           );
         }
       } catch (err) {
-        showToast(err instanceof Error ? err.message : 'No se pudo leer el archivo .fot');
+        showToast(err instanceof Error ? err.message : 'No se pudo leer el archivo .pat');
       }
     },
-    [photos, showToast]
+    [photos, openReconnectModal, showToast]
   );
 
   const handleFolderSelected = useCallback(
@@ -559,26 +562,26 @@ export function App() {
 
         {/* Export buttons and actions */}
         <div className="flex items-center gap-2">
-          {/* Quick .fot buttons */}
+          {/* Quick .pat buttons */}
           <div className="flex items-center gap-1 border-r border-slate-200 pr-2 mr-0.5">
             <button
               type="button"
-              onClick={handleExportFot}
-              title="Guardar archivo de configuración (.fot) de este montaje"
+              onClick={handleExportPat}
+              title="Guardar archivo de proyecto (.pat) eligiendo ubicación"
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/60 px-2.5 py-2 text-xs font-semibold text-slate-700 hover:text-indigo-700 transition cursor-pointer shadow-2xs"
             >
               <Download className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-              <span className="hidden xl:inline">Guardar .fot</span>
+              <span className="hidden xl:inline">Guardar .pat</span>
             </button>
 
             <button
               type="button"
               onClick={() => fotInputRef.current?.click()}
-              title="Cargar archivo de configuración (.fot)"
+              title="Cargar archivo de proyecto (.pat / .fot)"
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/60 px-2.5 py-2 text-xs font-semibold text-slate-700 hover:text-indigo-700 transition cursor-pointer shadow-2xs"
             >
               <FolderOpen className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-              <span className="hidden xl:inline">Cargar .fot</span>
+              <span className="hidden xl:inline">Cargar .pat</span>
             </button>
           </div>
 
@@ -679,7 +682,7 @@ export function App() {
             totalEstimatedBytes={totalEstimatedBytes}
             photoCount={photos.length}
             pageCount={pages.length}
-            onExportFot={handleExportFot}
+            onExportFot={handleExportPat}
             onTriggerImportFot={() => fotInputRef.current?.click()}
           />
         </div>
@@ -767,12 +770,12 @@ export function App() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={handleExportFot}
+                    onClick={handleExportPat}
                     className="inline-flex items-center gap-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 px-2.5 py-1 rounded-lg border border-slate-200 hover:border-indigo-200 font-medium transition cursor-pointer"
-                    title="Guardar archivo de configuración (.fot) de este montaje"
+                    title="Guardar archivo de proyecto (.pat) eligiendo ubicación"
                   >
                     <Download className="w-3.5 h-3.5 text-indigo-600" />
-                    Guardar .fot
+                    Guardar .pat
                   </button>
                   <button
                     type="button"
@@ -816,16 +819,16 @@ export function App() {
         </main>
       </div>
 
-      {/* Hidden file input for .fot / .json projects */}
+      {/* Hidden file input for .pat / .fot / .json projects */}
       <input
         ref={fotInputRef}
         type="file"
-        accept=".fot,.json"
+        accept=".pat,.fot,.json"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) {
-            handleImportFot(file);
+            handleImportPat(file);
           }
           e.target.value = '';
         }}

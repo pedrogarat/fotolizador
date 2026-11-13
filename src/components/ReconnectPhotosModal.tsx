@@ -1,10 +1,11 @@
 import React, { useRef, useState } from 'react';
 import {
-  AlertCircle,
+  CheckCircle2,
   FolderOpen,
   FolderSearch,
   HardDrive,
   Loader2,
+  ShieldCheck,
   Upload,
   X,
 } from 'lucide-react';
@@ -39,6 +40,50 @@ export const ReconnectPhotosModal: React.FC<ReconnectPhotosModalProps> = ({
     const fileList = Array.from(e.target.files);
     onFolderSelected(fileList);
     e.target.value = '';
+  };
+
+  const handleOpenNativeFolderPicker = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (typeof (window as any).showDirectoryPicker === 'function') {
+      try {
+        const dirHandle = await (window as any).showDirectoryPicker();
+        const files: File[] = [];
+
+        async function traverseDir(handle: any, pathPrefix = ''): Promise<void> {
+          for await (const entry of handle.values()) {
+            if (entry.kind === 'file') {
+              const file: File = await entry.getFile();
+              if (
+                file.type.startsWith('image/') ||
+                /\.(jpe?g|png|webp|heic|bmp|tiff?)$/i.test(file.name)
+              ) {
+                Object.defineProperty(file, 'customRelativePath', {
+                  value: pathPrefix ? `${pathPrefix}/${file.name}` : file.name,
+                  writable: true,
+                  configurable: true,
+                });
+                files.push(file);
+              }
+            } else if (entry.kind === 'directory') {
+              await traverseDir(entry, pathPrefix ? `${pathPrefix}/${entry.name}` : entry.name);
+            }
+          }
+        }
+
+        await traverseDir(dirHandle, dirHandle.name);
+        if (files.length > 0) {
+          onFolderSelected(files);
+          return;
+        }
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          return; // User cancelled dialog
+        }
+      }
+    }
+
+    // Fallback to webkitdirectory input
+    folderInputRef.current?.click();
   };
 
   const handleDrop = async (e: React.DragEvent) => {
@@ -77,10 +122,10 @@ export const ReconnectPhotosModal: React.FC<ReconnectPhotosModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">
-                Reconectar fotos del proyecto
+                Vincular fotos del proyecto
               </h3>
               <p className="text-xs text-slate-500">
-                Localización automática de archivos en subcarpetas
+                Lectura directa sin mover ni copiar archivos
               </p>
             </div>
           </div>
@@ -95,27 +140,36 @@ export const ReconnectPhotosModal: React.FC<ReconnectPhotosModalProps> = ({
 
         {/* Content */}
         <div className="p-6 space-y-4">
-          <div className="flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-900">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold">
-                {missingCount === totalProjectPhotos
-                  ? `Se requieren ${totalProjectPhotos} fotos para este montaje.`
-                  : `Faltan ${missingCount} de ${totalProjectPhotos} fotos por vincular.`}
-              </span>
-              <p className="text-amber-800 mt-1">
-                En este equipo, la unidad de red NAS puede tener otra letra (por ejemplo <span className="font-mono font-semibold">Z:</span> o <span className="font-mono font-semibold">X:</span> en lugar de <span className="font-mono font-semibold">V:</span>) o estar en otra ruta.
-              </p>
+          {/* Step 1 notification */}
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3.5 space-y-2 text-xs">
+            <div className="flex items-center gap-2 text-emerald-700 font-semibold">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>1º Configuración y orden del proyecto cargados ({totalProjectPhotos} fotos).</span>
+            </div>
+            <div className="text-slate-600 pl-6 leading-relaxed">
+              2º Se comprobó la ubicación guardada originalmente. Al estar en otro equipo o variar la letra de red (<span className="font-mono font-semibold text-slate-800">V:</span>, <span className="font-mono font-semibold text-slate-800">Z:</span>, etc.), indica la carpeta correspondiente para leerlas directamente.
             </div>
           </div>
 
+          {/* Root folder hint box */}
           <div>
-            <p className="text-xs text-slate-600 font-medium mb-1.5">
-              Carpeta de referencia guardada en el proyecto:
+            <p className="text-xs text-slate-600 font-medium mb-1">
+              Carpeta de origen guardada en el archivo:
             </p>
-            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-mono font-bold text-slate-800 break-all">
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-mono font-bold text-slate-800 break-all">
               <HardDrive className="w-4 h-4 text-indigo-600 shrink-0" />
               <span>\{rootFolderHint}</span>
+            </div>
+          </div>
+
+          {/* Safe operation guarantee */}
+          <div className="flex items-start gap-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200 p-3 text-xs text-emerald-900">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold">Lectura 100% segura en su ubicación original:</span>
+              <p className="text-emerald-800 mt-0.5 leading-relaxed">
+                Tus fotos <strong>NO se copiarán, NO se moverán ni se modificarán</strong> en tu disco o NAS. Solo se leen en memoria para continuar tu montaje.
+              </p>
             </div>
           </div>
 
@@ -124,10 +178,8 @@ export const ReconnectPhotosModal: React.FC<ReconnectPhotosModalProps> = ({
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            onClick={() => {
-              if (!isProcessing) folderInputRef.current?.click();
-            }}
-            className={`border-2 border-dashed rounded-xl p-6 text-center transition cursor-pointer ${
+            onClick={handleOpenNativeFolderPicker}
+            className={`border-2 border-dashed rounded-xl p-5 text-center transition cursor-pointer ${
               isProcessing
                 ? 'border-indigo-400 bg-indigo-50 cursor-wait'
                 : isDragOver
@@ -137,33 +189,37 @@ export const ReconnectPhotosModal: React.FC<ReconnectPhotosModalProps> = ({
           >
             {isProcessing ? (
               <div className="flex flex-col items-center">
-                <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-2" />
+                <Loader2 className="w-7 h-7 text-indigo-600 animate-spin mb-2" />
                 <p className="text-sm font-bold text-slate-800">
-                  Escaneando y vinculando fotos...
+                  Leyendo fotos desde la carpeta...
                 </p>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Buscando coincidencias en subcarpetas
+                  Vinculando subcarpetas sin copiar archivos
                 </p>
               </div>
             ) : (
               <div className="flex flex-col items-center">
-                <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2.5">
-                  <FolderOpen className="w-6 h-6" />
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2">
+                  <FolderOpen className="w-5 h-5" />
                 </div>
                 <p className="text-sm font-bold text-slate-800">
-                  Selecciona la carpeta <span className="text-indigo-600">\{rootFolderHint}</span>
+                  Selecciona la carpeta <span className="text-indigo-600 font-mono">\{rootFolderHint}</span>
                 </p>
-                <p className="text-xs text-slate-500 mt-1 max-w-xs">
-                  Haz clic aquí o arrastra la carpeta para escanear automáticamente todas las subcarpetas de visitas.
+                <p className="text-xs text-slate-500 mt-1 max-w-sm">
+                  Haz clic para abrir el explorador de Windows o arrastra la carpeta aquí.
                 </p>
-                <span className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 text-white px-3.5 py-1.5 text-xs font-semibold shadow-xs hover:bg-indigo-700 transition">
+                <button
+                  type="button"
+                  onClick={handleOpenNativeFolderPicker}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 text-white px-3.5 py-2 text-xs font-semibold shadow-xs hover:bg-indigo-700 transition cursor-pointer"
+                >
                   <Upload className="w-3.5 h-3.5" />
-                  Elegir carpeta en este PC
-                </span>
+                  Abrir cuadro de diálogo de Windows
+                </button>
               </div>
             )}
 
-            {/* Hidden native directory picker */}
+            {/* Hidden fallback directory picker */}
             <input
               ref={folderInputRef}
               type="file"
@@ -175,20 +231,19 @@ export const ReconnectPhotosModal: React.FC<ReconnectPhotosModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-          <p className="text-[11px] text-slate-400">
-            Escaneo 100% local en tu navegador
-          </p>
+        <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+          <span className="text-xs text-slate-500">
+            {missingCount} {missingCount === 1 ? 'foto pendiente' : 'fotos pendientes'}
+          </span>
           <button
             type="button"
             onClick={onClose}
             className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 transition cursor-pointer"
           >
-            Hacerlo más tarde
+            Cerrar
           </button>
         </div>
       </div>
     </div>
   );
 };
-

@@ -34,10 +34,11 @@ export function detectRootFolderHint(
   return first[0];
 }
 
-export function exportProjectToFot(
+export async function exportProjectToFile(
   settings: DocumentSettings,
-  photos: PhotoItem[]
-): { fileName: string; byteCount: number } {
+  photos: PhotoItem[],
+  preferredExtension: 'pat' | 'fot' = 'pat'
+): Promise<{ fileName: string; byteCount: number }> {
   const rootFolderHint = detectRootFolderHint(photos);
 
   const projectData: FotProjectFile = {
@@ -60,22 +61,56 @@ export function exportProjectToFot(
   };
 
   const jsonString = JSON.stringify(projectData, null, 2);
-  const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
-  const fileName = `${sanitizeFilename(settings.title)}.fot`;
+  const baseName = sanitizeFilename(settings.title || 'montaje');
+  const defaultFileName = `${baseName}.${preferredExtension}`;
 
+  // 1. Try native Windows Save Dialog (File System Access API)
+  if (typeof (window as any).showSaveFilePicker === 'function') {
+    try {
+      const handle = await (window as any).showSaveFilePicker({
+        suggestedName: defaultFileName,
+        types: [
+          {
+            description: 'Archivo de Proyecto (.pat)',
+            accept: {
+              'application/json': ['.pat', '.fot', '.json'],
+            },
+          },
+        ],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(jsonString);
+      await writable.close();
+      return { fileName: handle.name, byteCount: new Blob([jsonString]).size };
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        throw new Error('Guardado cancelado por el usuario.');
+      }
+      // If error other than abort, continue to fallback below
+    }
+  }
+
+  // 2. Standard browser download fallback
+  const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = fileName;
+  anchor.download = defaultFileName;
   document.body.appendChild(anchor);
   anchor.click();
   document.body.removeChild(anchor);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-  return { fileName, byteCount: blob.size };
+  return { fileName: defaultFileName, byteCount: blob.size };
 }
 
-export async function readFotFile(file: File): Promise<FotProjectFile> {
+export const exportProjectToPat = (settings: DocumentSettings, photos: PhotoItem[]) =>
+  exportProjectToFile(settings, photos, 'pat');
+
+export const exportProjectToFot = (settings: DocumentSettings, photos: PhotoItem[]) =>
+  exportProjectToFile(settings, photos, 'pat');
+
+export async function readProjectFile(file: File): Promise<FotProjectFile> {
   const text =
     typeof file.text === 'function'
       ? await file.text()
@@ -90,7 +125,7 @@ export async function readFotFile(file: File): Promise<FotProjectFile> {
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error('El archivo seleccionado no tiene un formato válido (.fot / JSON).');
+    throw new Error('El archivo seleccionado no tiene un formato válido (.pat / .fot / JSON).');
   }
 
   if (!parsed || typeof parsed !== 'object') {
@@ -126,7 +161,10 @@ export async function readFotFile(file: File): Promise<FotProjectFile> {
     createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : Date.now(),
     updatedAt: Date.now(),
     rootFolderHint: raw.rootFolderHint || detectRootFolderHint(photoList),
+    originalPathHint: raw.originalPathHint,
     settings: mergedSettings,
     photos: photoList,
   };
 }
+
+export const readFotFile = readProjectFile;
