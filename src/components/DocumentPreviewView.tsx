@@ -72,30 +72,38 @@ export const DocumentPreviewView: React.FC<DocumentPreviewViewProps> = ({
             key={page.pageNumber}
             style={{
               width: mmToPx(dims.pageWidthMm),
-              height: mmToPx(dims.pageHeightMm),
-              paddingTop: mmToPx(dims.marginTopMm),
+              minHeight: mmToPx(dims.pageHeightMm),
+              paddingTop: mmToPx(headerTopMm),
               paddingBottom: mmToPx(dims.marginBottomMm),
               paddingLeft: mmToPx(dims.marginLeftMm),
               paddingRight: mmToPx(dims.marginRightMm),
               fontFamily: 'Arial, Helvetica, sans-serif',
             }}
-            className="relative bg-white shadow-md ring-1 ring-slate-200 shrink-0 select-none overflow-hidden"
+            className="relative bg-white shadow-md ring-1 ring-slate-200 shrink-0 select-none overflow-hidden flex flex-col"
           >
-            {/* Header matching PLANTILLA.docx */}
+            {/* Header matching PLANTILLA.docx: 2 paragraphs with bottom borders, wrapping on overflow */}
             <div
               style={{
-                top: mmToPx(headerTopMm),
-                left: mmToPx(dims.marginLeftMm),
-                right: mmToPx(dims.marginRightMm),
-                fontSize: `${11 * zoom}pt`,
+                marginBottom: mmToPx(Math.max(1.5, dims.marginTopMm - headerTopMm - 10)),
               }}
-              className="absolute border-b border-black font-bold text-black pb-0.5 leading-tight truncate"
+              className="flex flex-col gap-1 text-black font-bold leading-tight shrink-0"
             >
-              {settings.title.trim() || 'TÍTULO'}
+              <div
+                style={{ fontSize: `${9 * zoom}pt` }}
+                className="border-b border-black pb-0.5 break-words whitespace-normal"
+              >
+                {(settings.mainTitle ?? '').trim() || 'TITULO PRINCIPAL'}
+              </div>
+              <div
+                style={{ fontSize: `${11 * zoom}pt` }}
+                className="border-b border-black pb-0.5 break-words whitespace-normal"
+              >
+                {(settings.title ?? '').trim() || 'TÍTULO'}
+              </div>
             </div>
 
             {/* Body blocks */}
-            <div className="w-full h-full flex flex-col">
+            <div className="w-full grow flex flex-col">
               {page.blocks.map((block, bIdx) => (
                 <div key={bIdx} className={bIdx > 0 ? 'mt-1.5' : ''}>
                   {block.groupLabel && (

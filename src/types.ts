@@ -33,6 +33,7 @@ export interface PhotoItem {
 }
 
 export interface DocumentSettings {
+  mainTitle: string;
   title: string;
   footerLabel: FooterLabelMode;
   sortField: SortField;
@@ -110,6 +111,7 @@ export interface PlannedPage {
 }
 
 export const DEFAULT_SETTINGS: DocumentSettings = {
+  mainTitle: 'TITULO PRINCIPAL',
   title: 'TÍTULO',
   footerLabel: 'paxina',
   sortField: 'captureDate',

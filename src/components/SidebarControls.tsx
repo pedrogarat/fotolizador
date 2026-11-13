@@ -134,17 +134,32 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
             Título y página
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
-              Título del encabezado
-            </label>
-            <input
-              type="text"
-              value={settings.title}
-              onChange={(e) => onChange({ title: e.target.value })}
-              placeholder="Ej. Informe fotográfico obra..."
-              className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
-            />
+          <div className="space-y-2.5">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Título principal (superior)
+              </label>
+              <input
+                type="text"
+                value={settings.mainTitle}
+                onChange={(e) => onChange({ mainTitle: e.target.value })}
+                placeholder="Ej. TITULO PRINCIPAL..."
+                className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm uppercase placeholder:normal-case focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Título secundario / Obra
+              </label>
+              <input
+                type="text"
+                value={settings.title}
+                onChange={(e) => onChange({ title: e.target.value })}
+                placeholder="Ej. TÍTULO / OBRA..."
+                className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm uppercase placeholder:normal-case focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2">

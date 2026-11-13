@@ -61,7 +61,7 @@ export async function exportProjectToFile(
   };
 
   const jsonString = JSON.stringify(projectData, null, 2);
-  const baseName = sanitizeFilename(settings.title || 'montaje');
+  const baseName = sanitizeFilename(settings.title || settings.mainTitle || 'montaje');
   const defaultFileName = `${baseName}.${preferredExtension}`;
 
   // 1. Try native Windows Save Dialog (File System Access API)

@@ -11,6 +11,7 @@ describe('projectFile (.fot)', () => {
       updatedAt: 1700000000000,
       settings: {
         ...DEFAULT_SETTINGS,
+        mainTitle: 'PROYECTO DE EDIFICACIÓN',
         title: 'Inspección Estructura A',
         columns: 3,
         rows: 2,
@@ -35,6 +36,7 @@ describe('projectFile (.fot)', () => {
     const result = await readFotFile(file);
 
     expect(result.format).toBe('fotoprint');
+    expect(result.settings.mainTitle).toBe('PROYECTO DE EDIFICACIÓN');
     expect(result.settings.title).toBe('Inspección Estructura A');
     expect(result.settings.columns).toBe(3);
     expect(result.photos).toHaveLength(2);

@@ -107,8 +107,32 @@ function buildDocxBorders(enabled: boolean) {
 }
 
 function buildDocxHeader(settings: DocumentSettings): Header {
+  const mainTitleText = (settings.mainTitle ?? '').trim() || 'TITULO PRINCIPAL';
+  const subTitleText = (settings.title ?? '').trim() || 'TÍTULO';
+
   return new Header({
     children: [
+      // 1. TÍTULO PRINCIPAL (9pt Arial Bold, bottom border single 4)
+      new Paragraph({
+        border: {
+          bottom: {
+            style: BorderStyle.SINGLE,
+            size: 4,
+            space: 1,
+            color: '000000',
+          },
+        },
+        spacing: { after: 60, line: 240 },
+        children: [
+          new TextRun({
+            text: mainTitleText,
+            font: 'Arial',
+            bold: true,
+            size: 18, // 9pt
+          }),
+        ],
+      }),
+      // 2. TÍTULO (11pt Arial Bold, bottom border single 4)
       new Paragraph({
         border: {
           bottom: {
@@ -121,7 +145,7 @@ function buildDocxHeader(settings: DocumentSettings): Header {
         spacing: { after: 0, line: 240 },
         children: [
           new TextRun({
-            text: settings.title.trim() || 'TÍTULO',
+            text: subTitleText,
             font: 'Arial',
             bold: true,
             size: 22, // 11pt
@@ -371,24 +395,61 @@ export async function generatePdfBlob(
       pdf.addPage('a4', settings.orientation);
     }
 
-    // Header matching PLANTILLA.docx (Arial 11pt Bold + 0.5pt bottom rule)
-    const headerBaselineY = headerY + 4.5;
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(11);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(settings.title.trim() || 'TÍTULO', dims.marginLeftMm, headerBaselineY);
+    // Header matching PLANTILLA.docx:
+    // 1st paragraph: Arial 9pt Bold + 0.5pt bottom rule
+    // 2nd paragraph: Arial 11pt Bold + 0.5pt bottom rule
+    const availableWidth = dims.contentWidthMm;
+    let currentY = headerY;
 
+    // 1. TÍTULO PRINCIPAL (9pt bold)
+    const mainTitleText = (settings.mainTitle ?? '').trim() || 'TITULO PRINCIPAL';
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(9);
+    pdf.setTextColor(0, 0, 0);
+
+    const mainTitleLines = pdf.splitTextToSize(mainTitleText, availableWidth);
+    const lineHeight9pt = 3.6;
+    for (const line of mainTitleLines) {
+      currentY += lineHeight9pt;
+      pdf.text(line, dims.marginLeftMm, currentY);
+    }
+    currentY += 1.2;
     pdf.setDrawColor(0, 0, 0);
     pdf.setLineWidth(0.2);
     pdf.line(
       dims.marginLeftMm,
-      headerBaselineY + 1.5,
+      currentY,
       dims.pageWidthMm - dims.marginRightMm,
-      headerBaselineY + 1.5
+      currentY
     );
 
-    // Body blocks
-    let cursorY = dims.marginTopMm;
+    // Small gap between the two title paragraphs
+    currentY += 2.0;
+
+    // 2. TÍTULO (11pt bold)
+    const subTitleText = (settings.title ?? '').trim() || 'TÍTULO';
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.setTextColor(0, 0, 0);
+
+    const subTitleLines = pdf.splitTextToSize(subTitleText, availableWidth);
+    const lineHeight11pt = 4.4;
+    for (const line of subTitleLines) {
+      currentY += lineHeight11pt;
+      pdf.text(line, dims.marginLeftMm, currentY);
+    }
+    currentY += 1.5;
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(0.2);
+    pdf.line(
+      dims.marginLeftMm,
+      currentY,
+      dims.pageWidthMm - dims.marginRightMm,
+      currentY
+    );
+
+    // Body blocks: start at marginTopMm or safely below header if multi-line
+    let cursorY = Math.max(dims.marginTopMm, currentY + 3);
 
     for (const block of page.blocks) {
       if (block.groupLabel) {
@@ -497,7 +558,7 @@ export async function exportDocument(
   onProgress?: (progress: ExportProgress) => void
 ): Promise<{ docxBytes?: number; pdfBytes?: number }> {
   const cache = await prepareResizedImages(pages, settings, onProgress);
-  const baseName = sanitizeFilename(settings.title);
+  const baseName = sanitizeFilename(settings.title || settings.mainTitle || 'montaje');
   const result: { docxBytes?: number; pdfBytes?: number } = {};
 
   if (format === 'docx' || format === 'both') {
